@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioSimulationApp</title>
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(113, 113, 122, 0.3);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(113, 113, 122, 0.5);
+        }
+        @keyframes shimmer {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(300%); }
+        }
+        .animate-shimmer {
+            animation: shimmer 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useRef, useLayoutEffect, useEffect } = React;
+
+        // --- EMBEDDED DATASET (Production Baseline) ---
+        const INITIAL_DATA = [
+            {"constituent": "Antioxidants", "phenotypic_outcome": "Cognitive Function", "aggregated_bio_sources": "Berries", "aggregated_mechanisms": "Improve blood flow to brain"},
+            {"constituent": "B-Complex", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Lean Meats/Legumes", "aggregated_mechanisms": "Convert macronutrients to energy"},
+            {"constituent": "B-Complex", "phenotypic_outcome": "Stress Adaptability", "aggregated_bio_sources": "Whole Grains/Dark Greens", "aggregated_mechanisms": "Neurotransmitter production (Serotonin/Dopamine)"},
+            {"constituent": "Caffeine/Catechins", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Green Tea/Coffee", "aggregated_mechanisms": "Increase fat oxidation"},
+            {"constituent": "Calcium", "phenotypic_outcome": "Bone Density", "aggregated_bio_sources": "Dairy/Leafy Greens", "aggregated_mechanisms": "Structural bone component"},
+            {"constituent": "Calcium", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Dairy/Fortified Foods", "aggregated_mechanisms": "Maintain bone density"},
+            {"constituent": "Capsaicin", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Chili Peppers", "aggregated_mechanisms": "Increase body temperature/calorie burn"},
+            {"constituent": "Catechins", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Green Tea", "aggregated_mechanisms": "Protect against sun damage"},
+            {"constituent": "Collagen", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Bone Broth", "aggregated_mechanisms": "Improve skin elasticity"},
+            {"constituent": "Folate", "phenotypic_outcome": "Cognitive Function", "aggregated_bio_sources": "Leafy Greens", "aggregated_mechanisms": "Lower homocysteine levels"},
+            {"constituent": "Glucosinolates/Fiber", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Cruciferous Veg", "aggregated_mechanisms": "Liver detoxification support"},
+            {"constituent": "Iodine", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Seaweed/Iodized Salt", "aggregated_mechanisms": "Thyroid hormone production"},
+            {"constituent": "Iron", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Red Meat/Spinach", "aggregated_mechanisms": "Oxygen transport for fat burning"},
+            {"constituent": "Lutein/Zeaxanthin", "phenotypic_outcome": "Eye Vitality", "aggregated_bio_sources": "Eggs | Leafy Greens", "aggregated_mechanisms": "Filter harmful blue light & Protect macula"},
+            {"constituent": "Lycopene", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Tomatoes", "aggregated_mechanisms": "Protect from UV damage"},
+            {"constituent": "MCT & Omega-3", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "MCT Oil/Fatty Fish", "aggregated_mechanisms": "Direct liver energy conversion"},
+            {"constituent": "Magnesium", "phenotypic_outcome": "Bone Density", "aggregated_bio_sources": "Nuts/Seeds", "aggregated_mechanisms": "Bone mineralization"},
+            {"constituent": "Magnesium", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Nuts/Leafy Greens", "aggregated_mechanisms": "Improve insulin sensitivity"},
+            {"constituent": "Magnesium", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Leafy Greens/Nuts", "aggregated_mechanisms": "Muscle relaxation/cramp reduction"},
+            {"constituent": "Magnesium", "phenotypic_outcome": "Stress Adaptability", "aggregated_bio_sources": "Almonds/Spinach", "aggregated_mechanisms": "Boost GABA (Relaxation neurotransmitter)"},
+            {"constituent": "Omega-3", "phenotypic_outcome": "Cognitive Function", "aggregated_bio_sources": "Fatty Fish", "aggregated_mechanisms": "Brain cell structure maintenance"},
+            {"constituent": "Omega-3", "phenotypic_outcome": "Eye Vitality", "aggregated_bio_sources": "Fatty Fish", "aggregated_mechanisms": "Support retinal function"},
+            {"constituent": "Omega-3", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Fatty Fish/Flaxseeds", "aggregated_mechanisms": "Reduce joint inflammation/stiffness"},
+            {"constituent": "Omega-3", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Fatty Fish | Flaxseeds/Chia", "aggregated_mechanisms": "Maintain lipid barrier & Maintain moisture barrier"},
+            {"constituent": "Omega-3", "phenotypic_outcome": "Stress Adaptability", "aggregated_bio_sources": "Fatty Fish/Walnuts", "aggregated_mechanisms": "Reduce brain inflammation"},
+            {"constituent": "Protein", "phenotypic_outcome": "Bone Density", "aggregated_bio_sources": "Meat/Fish/Soy", "aggregated_mechanisms": "Bone structure support"},
+            {"constituent": "Protein", "phenotypic_outcome": "Metabolic Reset", "aggregated_bio_sources": "Lean Meats/Fish/Eggs", "aggregated_mechanisms": "High Thermic Effect (TEF)"},
+            {"constituent": "Protein", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Chicken/Fish/Tofu", "aggregated_mechanisms": "Muscle maintenance and strength"},
+            {"constituent": "Selenium", "phenotypic_outcome": "Immune Resilience", "aggregated_bio_sources": "Nuts", "aggregated_mechanisms": "Lower oxidative stress"},
+            {"constituent": "Vitamin A", "phenotypic_outcome": "Eye Vitality", "aggregated_bio_sources": "Orange/Yellow Vegetables", "aggregated_mechanisms": "Maintain healthy cornea"},
+            {"constituent": "Vitamin A", "phenotypic_outcome": "Immune Resilience", "aggregated_bio_sources": "Orange/Yellow Vegetables", "aggregated_mechanisms": "Barrier protection (skin/mucosa)"},
+            {"constituent": "Vitamin A", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Sweet Potatoes/Carrots", "aggregated_mechanisms": "Improve cell turnover/tone"},
+            {"constituent": "Vitamin B6/B12", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Fish/Poultry", "aggregated_mechanisms": "Energy production for activity"},
+            {"constituent": "Vitamin C", "phenotypic_outcome": "Bone Density", "aggregated_bio_sources": "Citrus & Peppers", "aggregated_mechanisms": "Collagen formation"},
+            {"constituent": "Vitamin C", "phenotypic_outcome": "Eye Vitality", "aggregated_bio_sources": "Citrus", "aggregated_mechanisms": "Tissue repair and growth"},
+            {"constituent": "Vitamin C", "phenotypic_outcome": "Immune Resilience", "aggregated_bio_sources": "Citrus", "aggregated_mechanisms": "Stimulate WBC production"},
+            {"constituent": "Vitamin C", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Citrus & Peppers", "aggregated_mechanisms": "Collagen synthesis"},
+            {"constituent": "Vitamin C", "phenotypic_outcome": "Stress Adaptability", "aggregated_bio_sources": "Citrus & Peppers", "aggregated_mechanisms": "Lower cortisol levels"},
+            {"constituent": "Vitamin C & Antioxidants", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Berries/Citrus", "aggregated_mechanisms": "Collagen production for cartilage"},
+            {"constituent": "Vitamin C & Antioxidants", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Berries", "aggregated_mechanisms": "Fight free radicals"},
+            {"constituent": "Vitamin D", "phenotypic_outcome": "Bone Density", "aggregated_bio_sources": "Fatty Fish/Eggs", "aggregated_mechanisms": "Calcium absorption"},
+            {"constituent": "Vitamin D", "phenotypic_outcome": "Immune Resilience", "aggregated_bio_sources": "Fatty Fish", "aggregated_mechanisms": "Regulate immune system"},
+            {"constituent": "Vitamin D", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Fatty Fish/Eggs", "aggregated_mechanisms": "Prevent osteoporosis"},
+            {"constituent": "Vitamin D", "phenotypic_outcome": "Stress Adaptability", "aggregated_bio_sources": "Fatty Fish/Sunlight", "aggregated_mechanisms": "Support HPA axis function"},
+            {"constituent": "Vitamin E", "phenotypic_outcome": "Cognitive Function", "aggregated_bio_sources": "Nuts and Seeds", "aggregated_mechanisms": "Protect from oxidative stress"},
+            {"constituent": "Vitamin E", "phenotypic_outcome": "Eye Vitality", "aggregated_bio_sources": "Nuts and Seeds", "aggregated_mechanisms": "Protect cell membranes"},
+            {"constituent": "Vitamin E/Healthy Fats", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Avocados", "aggregated_mechanisms": "Skin hydration and protection"},
+            {"constituent": "Vitamin K", "phenotypic_outcome": "Cognitive Function", "aggregated_bio_sources": "Leafy Greens", "aggregated_mechanisms": "Support brain cell health"},
+            {"constituent": "Vitamin K", "phenotypic_outcome": "Physical Mobility", "aggregated_bio_sources": "Leafy Greens", "aggregated_mechanisms": "Regulate calcium deposition"},
+            {"constituent": "Vitamin K2", "phenotypic_outcome": "Bone Density", "aggregated_bio_sources": "Natto/Cheese/Yolks", "aggregated_mechanisms": "Bone binding/mineralization"},
+            {"constituent": "Zinc", "phenotypic_outcome": "Eye Vitality", "aggregated_bio_sources": "Legumes/Meat", "aggregated_mechanisms": "Melanin production"},
+            {"constituent": "Zinc", "phenotypic_outcome": "Immune Resilience", "aggregated_bio_sources": "Red Meat/Oysters", "aggregated_mechanisms": "Activate lymphocytes"},
+            {"constituent": "Zinc/Selenium", "phenotypic_outcome": "Skin Vitality", "aggregated_bio_sources": "Shellfish", "aggregated_mechanisms": "Wound healing/inflammation reduction"}
+        ];
+
+        function BioSimulationApp() {
+            const [data, setData] = useState(INITIAL_DATA);
+            const [activeSelection, setActiveSelection] = useState(new Set());
+            const [selectionMode, setSelectionMode] = useState('single');
+            const [lines, setLines] = useState([]);
+
+            const svaRootRef = useRef(null);
+            const scrollableRef = useRef(null);
+            const sourceRefs = useRef({});
+            const middleRefs = useRef({});
+            const outcomeRefs = useRef({});
+
+            const availableOutcomes = useMemo(() => {
+                const outcomes = new Set(data.map(d => d.phenotypic_outcome));
+                return Array.from(outcomes).sort();
+            }, [data]);
+
+            const normalizeSources = (sourceStr) => {
+                if (!sourceStr) return [];
+                const delimiters = /[|/&]|\band\b|\bor\b/i;
+                return sourceStr.split(delimiters).map(s => s.trim()).filter(s => s.length > 0);
+            };
+
+            const graphData = useMemo(() => {
+                const sourcesSet = new Set();
+                const middleSet = new Set();
+                const connections = [];
+
+                data.forEach(row => {
+                    const rowSources = normalizeSources(row.aggregated_bio_sources);
+                    middleSet.add(row.constituent);
+                    rowSources.forEach(src => {
+                        const cleanSrc = src.replace(/\.$/, '');
+                        sourcesSet.add(cleanSrc);
+                        connections.push({
+                            source: cleanSrc,
+                            middle: row.constituent,
+                            outcome: row.phenotypic_outcome
+                        });
+                    });
+                });
+
+                return {
+                    sources: Array.from(sourcesSet).sort(),
+                    middles: Array.from(middleSet).sort(),
+                    outcomes: availableOutcomes,
+                    connections
+                };
+            }, [data, availableOutcomes]);
+
+            const handleNodeClick = (type, id) => {
+                const nodeRef = `${type}:${id}`;
+                const next = new Set(activeSelection);
+
+                if (selectionMode === 'single') {
+                    if (next.has(nodeRef)) {
+                        next.clear();
+                    } else {
+                        next.clear();
+                        next.add(nodeRef);
+                    }
+                } else {
+                    if (next.has(nodeRef)) {
+                        next.delete(nodeRef);
+                    } else {
+                        next.add(nodeRef);
+                    }
+                }
+                setActiveSelection(next);
+            };
+
+            const activeChainIds = useMemo(() => {
+                if (activeSelection.size === 0) return new Set();
+                const activeIds = new Set();
+                
+                activeSelection.forEach(item => {
+                    const [type, id] = item.split(':');
+                    activeIds.add(id);
+                    
+                    graphData.connections.forEach(conn => {
+                        let match = false;
+                        if (type === 'source' && conn.source === id) match = true;
+                        if (type === 'middle' && conn.middle === id) match = true;
+                        if (type === 'outcome' && conn.outcome === id) match = true;
+                        
+                        if (match) {
+                            activeIds.add(conn.source);
+                            activeIds.add(conn.middle);
+                            activeIds.add(conn.outcome);
+                        }
+                    });
+                });
+                
+                return activeIds;
+            }, [activeSelection, graphData]);
+
+            const updateLinkage = () => {
+                if (!svaRootRef.current || activeSelection.size === 0) {
+                    setLines([]);
+                    return;
+                }
+
+                const newLines = [];
+                const containerRect = svaRootRef.current.getBoundingClientRect();
+
+                const getPos = (refs, id, side) => {
+                    const el = refs.current[id];
+                    if (!el) return null;
+                    const rect = el.getBoundingClientRect();
+                    const xPos = (side === 'right' ? rect.right : rect.left) - containerRect.left;
+                    const yPos = (rect.top + rect.height / 2) - containerRect.top;
+                    return { x: xPos, y: yPos };
+                };
+
+                const relevantConns = graphData.connections.filter(conn => {
+                    let isSelected = false;
+                    activeSelection.forEach(item => {
+                        const [type, id] = item.split(':');
+                        if (type === 'source' && conn.source === id) isSelected = true;
+                        if (type === 'middle' && conn.middle === id) isSelected = true;
+                        if (type === 'outcome' && conn.outcome === id) isSelected = true;
+                    });
+                    return isSelected;
+                });
+
+                relevantConns.forEach((conn, idx) => {
+                    const start = getPos(sourceRefs, conn.source, 'right');
+                    const midLeft = getPos(middleRefs, conn.middle, 'left');
+                    const midRight = getPos(middleRefs, conn.middle, 'right');
+                    const end = getPos(outcomeRefs, conn.outcome, 'left');
+
+                    if (start && midLeft && midRight && end) {
+                        newLines.push({ id: `sm-${idx}`, x1: start.x, y1: start.y, x2: midLeft.x, y2: midLeft.y });
+                        newLines.push({ id: `mo-${idx}`, x1: midRight.x, y1: midRight.y, x2: end.x, y2: end.y });
+                    }
+                });
+                setLines(newLines);
+            };
+
+            useLayoutEffect(() => {
+                updateLinkage();
+            }, [graphData, activeSelection]);
+
+            useEffect(() => {
+                const handleSync = () => updateLinkage();
+                const scrollEl = scrollableRef.current;
+                window.addEventListener('resize', handleSync);
+                if (scrollEl) scrollEl.addEventListener('scroll', handleSync);
+                return () => {
+                    window.removeEventListener('resize', handleSync);
+                    if (scrollEl) scrollEl.removeEventListener('scroll', handleSync);
+                };
+            }, [activeSelection, graphData]);
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    const lines = text.split('\n');
+                    const newData = [];
+                    for(let i=1; i<lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+                        const currentline = lines[i].split(',');
+                        if (currentline.length >= 4) {
+                            newData.push({
+                                constituent: currentline[0],
+                                phenotypic_outcome: currentline[1],
+                                aggregated_bio_sources: currentline[2],
+                                aggregated_mechanisms: currentline[3]
+                            });
+                        }
+                    }
+                    if (newData.length > 0) {
+                        setData(newData);
+                        setActiveSelection(new Set());
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            return (
+                <div className="flex flex-col h-screen bg-[#010206] text-zinc-300 font-mono overflow-hidden selection:bg-cyan-900/50">
+                    
+                    <header className="h-10 border-b border-cyan-900/40 bg-[#010206] flex items-center justify-between px-6 z-20 shadow-lg shrink-0">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+                            <h1 className="text-[10px] font-bold tracking-[0.3em] text-white uppercase">
+                                BIO_SIM <span className="text-cyan-800 tracking-normal ml-2 italic">V.5.1.3</span>
+                            </h1>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex items-center gap-2 text-[8px] text-zinc-500 uppercase tracking-widest">
+                                ● ACTIVE
+                            </div>
+                            <label className="cursor-pointer flex items-center gap-2 text-[9px] font-bold text-cyan-900 hover:text-cyan-400 transition-colors uppercase">
+                                📤 Data_Ingest
+                                <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                            </label>
+                        </div>
+                    </header>
+
+                    <div className="flex-1 flex overflow-hidden">
+                        
+                        <div className="w-56 bg-[#030610] border-r border-cyan-900/10 flex flex-col z-10 shadow-xl shrink-0">
+                            <div className="p-4 border-b border-cyan-900/10 bg-cyan-950/5">
+                                <h2 className="text-[8px] font-bold text-zinc-600 flex items-center gap-2 uppercase tracking-[0.2em] mb-4">
+                                    # Interface_Mode
+                                </h2>
+                                <div className="flex bg-black/40 p-0.5 rounded border border-zinc-800 mb-4">
+                                    <button 
+                                        onClick={() => { setSelectionMode('single'); setActiveSelection(new Set()); }}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-1 text-[8px] font-bold uppercase transition-all
+                                            ${selectionMode === 'single' ? 'bg-zinc-800 text-white shadow-inner' : 'text-zinc-600 hover:text-zinc-400'}`}
+                                    >
+                                        👆 Linear
+                                    </button>
+                                    <button 
+                                        onClick={() => setSelectionMode('multi')}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-1 text-[8px] font-bold uppercase transition-all
+                                            ${selectionMode === 'multi' ? 'bg-zinc-800 text-white shadow-inner' : 'text-zinc-600 hover:text-zinc-400'}`}
+                                    >
+                                        🔀 Multi
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                                <div className="mb-3 flex items-center gap-2 text-zinc-600 uppercase">
+                                    📚
+                                    <span className="text-[8px] font-bold tracking-[0.1em]">Outcome_Filters</span>
+                                </div>
+                                <div className="space-y-0.5">
+                                    {graphData.outcomes.map(outcome => {
+                                        const isSelected = activeSelection.has(`outcome:${outcome}`);
+                                        return (
+                                            <button
+                                                key={outcome}
+                                                onClick={() => handleNodeClick('outcome', outcome)}
+                                                className={`w-full text-left px-2 py-2 text-[8px] font-bold uppercase tracking-wider border-l transition-all duration-200 flex items-center justify-between
+                                                    ${isSelected 
+                                                        ? 'border-amber-500 bg-amber-950/20 text-white shadow-md' 
+                                                        : 'border-transparent text-zinc-500 hover:text-white hover:bg-zinc-900/30'
+                                                    }`}
+                                            >
+                                                {outcome}
+                                                {isSelected && <div className="w-1.5 h-1.5 bg-amber-400 rounded-full shadow-[0_0_5px_#f59e0b]"></div>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            
+                            <div className="p-4 border-t border-cyan-900/10">
+                                <button 
+                                    onClick={() => setActiveSelection(new Set())}
+                                    className="w-full py-1.5 border border-zinc-900 hover:bg-zinc-900 hover:text-white text-zinc-700 text-[8px] font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Clear_Selection
+                                </button>
+                            </div>
+                        </div>
+
+                        <div ref={scrollableRef} className="flex-1 bg-[#010206] relative overflow-auto custom-scrollbar">
+                            
+                            <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" 
+                                 style={{ backgroundImage: `linear-gradient(#155e75 1px, transparent 1px), linear-gradient(90deg, #155e75 1px, transparent 1px)`, backgroundSize: '24px 24px' }}>
+                            </div>
+
+                            <div ref={svaRootRef} className="relative min-w-max p-10 min-h-full flex items-center justify-center">
+                                
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
+                                    <defs>
+                                        <filter id="vectorNeon" x="-50%" y="-50%" width="200%" height="200%">
+                                            <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                        </filter>
+                                    </defs>
+                                    {lines.map((line) => (
+                                        <line 
+                                            key={line.id}
+                                            x1={line.x1} y1={line.y1}
+                                            x2={line.x2} y2={line.y2}
+                                            stroke="#22d3ee"
+                                            strokeWidth={2}
+                                            strokeLinecap="round"
+                                            strokeOpacity={0.5} 
+                                            filter="url(#vectorNeon)"
+                                            className="transition-all duration-500 ease-out"
+                                        />
+                                    ))}
+                                </svg>
+
+                                <div className="flex justify-between w-full max-w-7xl gap-28 relative z-20">
+                                    
+                                    <div className="flex flex-col justify-center gap-1.5 items-start">
+                                        <div className="text-[8px] text-emerald-900 font-bold uppercase mb-4 tracking-[0.3em] border-l border-emerald-900 pl-2 italic">Biological_Origin</div>
+                                        {graphData.sources.map(src => {
+                                            const isPartOfChain = activeChainIds.has(src);
+                                            const isExplicitlySelected = activeSelection.has(`source:${src}`);
+                                            return (
+                                                <div 
+                                                    key={src} 
+                                                    ref={el => sourceRefs.current[src] = el}
+                                                    onClick={() => handleNodeClick('source', src)}
+                                                    style={{ clipPath: 'polygon(0 0, 92% 0, 100% 25%, 100% 100%, 0 100%)' }}
+                                                    className={`relative group cursor-pointer px-3 py-1 border transition-all duration-300 text-[9px] font-bold uppercase tracking-tight 
+                                                        w-44 whitespace-nowrap overflow-hidden text-ellipsis
+                                                        ${isPartOfChain 
+                                                            ? 'bg-emerald-950 border-emerald-400 text-white shadow-[0_0_15px_rgba(52,211,153,0.3)] z-30 font-black scale-105' 
+                                                            : 'bg-zinc-950/20 border-zinc-800/60 text-zinc-300 hover:border-emerald-600 hover:text-white'
+                                                        }
+                                                        ${isExplicitlySelected ? 'ring-1 ring-white/50' : ''}`}
+                                                >
+                                                    {src}
+                                                    <div className={`absolute top-1/2 -right-0.5 w-1.5 h-1.5 rounded-full transform -translate-y-1/2 translate-x-1/2 transition-all
+                                                        ${isPartOfChain ? 'bg-emerald-400 shadow-[0_0_8px_#10b981]' : 'bg-zinc-950 border border-zinc-900'}`} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="flex flex-col justify-center gap-2 items-center">
+                                        <div className="text-[8px] text-indigo-900 font-bold uppercase mb-4 tracking-[0.3em] border-l border-indigo-900 pl-2 italic">Logic_Kernel</div>
+                                        {graphData.middles.map(mid => {
+                                            const isPartOfChain = activeChainIds.has(mid);
+                                            const isExplicitlySelected = activeSelection.has(`middle:${mid}`);
+                                            return (
+                                                <div 
+                                                    key={mid}
+                                                    ref={el => middleRefs.current[mid] = el}
+                                                    onClick={() => handleNodeClick('middle', mid)}
+                                                    className={`relative px-4 py-1 rounded-full border transition-all duration-300 cursor-pointer 
+                                                        w-40 text-center text-[8px] font-bold uppercase tracking-wider
+                                                        ${isPartOfChain
+                                                            ? 'bg-indigo-950 border-indigo-400 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30 font-black scale-110'
+                                                            : 'bg-zinc-950/20 border-zinc-800/60 text-zinc-300 hover:border-indigo-600 hover:text-white'
+                                                        }
+                                                        ${isExplicitlySelected ? 'ring-1 ring-white/50' : ''}`}
+                                                >
+                                                    {mid}
+                                                    <div className={`absolute top-1/2 -left-0.5 w-1 h-1 rounded-full transform -translate-y-1/2 -translate-x-1/2 transition-all ${isPartOfChain ? 'bg-indigo-400' : 'bg-zinc-950 border border-zinc-900'}`} />
+                                                    <div className={`absolute top-1/2 -right-0.5 w-1 h-1 rounded-full transform -translate-y-1/2 translate-x-1/2 transition-all ${isPartOfChain ? 'bg-indigo-400' : 'bg-zinc-950 border border-zinc-900'}`} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="flex flex-col justify-center gap-1.5 items-end">
+                                        <div className="text-[8px] text-amber-900 font-bold uppercase mb-4 tracking-[0.3em] text-right border-r border-amber-900 pr-2 italic">Outcome_Axis</div>
+                                        {graphData.outcomes.map(out => {
+                                            const isPartOfChain = activeChainIds.has(out);
+                                            const isExplicitlySelected = activeSelection.has(`outcome:${out}`);
+                                            return (
+                                                <div 
+                                                    key={out}
+                                                    ref={el => outcomeRefs.current[out] = el}
+                                                    onClick={() => handleNodeClick('outcome', out)}
+                                                    className={`relative px-4 py-1.5 border-2 transition-all duration-300 cursor-pointer text-[10px] uppercase tracking-[0.2em] text-right 
+                                                        w-52
+                                                        ${isPartOfChain
+                                                            ? 'border-amber-500 bg-amber-950 text-white shadow-[0_0_25px_rgba(245,158,11,0.2)] z-30 font-black scale-105'
+                                                            : 'border-zinc-800 bg-transparent text-zinc-300 hover:text-amber-400 hover:border-amber-600'
+                                                        }
+                                                        ${isExplicitlySelected ? 'ring-1 ring-white/50' : ''}`}
+                                                >
+                                                    {out}
+                                                    <div className={`absolute top-1/2 -left-1 w-2.5 h-2.5 rounded-full transform -translate-y-1/2 -translate-x-1/2 transition-all
+                                                        ${isPartOfChain ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]' : 'bg-zinc-950 border border-zinc-900'}`} />
+                                                    
+                                                    {isPartOfChain && (
+                                                        <div className="absolute bottom-0 right-0 w-full h-[2px] bg-amber-500/20 overflow-hidden">
+                                                            <div className="w-1/3 h-full bg-amber-400 animate-shimmer"></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <footer className="h-4 bg-[#010206] border-t border-zinc-900/10 flex items-center justify-between px-6 z-30 shrink-0">
+                                <div className="flex items-center gap-4 text-[7px] font-bold tracking-[0.3em] text-zinc-950 uppercase">
+                                    <span>Selection_Mode: {selectionMode.toUpperCase()}</span>
+                                    <span className="flex items-center gap-1 text-emerald-950 opacity-40">
+                                        <div className="w-1 h-1 bg-emerald-900 rounded-full animate-pulse"></div>
+                                        V.5.1.3_MPI_PROTOCOL
+                                    </span>
+                                </div>
+                                <div className="text-[7px] text-zinc-800 font-bold uppercase tracking-widest">System_Simulation_Deep_Trace</div>
+                            </footer>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<BioSimulationApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
